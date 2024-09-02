@@ -10,11 +10,13 @@ class HeadlineController extends Controller
     public function index(Request $request)
     {
         $validated = $request->validate([
-            'category' => 'nullable|in:'.implode(',', Headline::CATEGORIES),
+            'categories' => 'nullable',
         ]);
+        $categories = collect(explode(',', $validated['categories'] ?? ''))
+            ->filter(fn($category) => in_array($category, Headline::CATEGORIES));
 
         $headlines = Headline::query()
-            ->when($validated['category'] ?? null, fn ($query, $category) => $query->where('category', $category))
+            ->when($categories->isNotEmpty(), fn ($query) => $query->whereIn('category', $categories))
             ->with('forwardRefs', 'backwardRefs')
             ->orderBy('id')
             ->get();

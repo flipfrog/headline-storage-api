@@ -56,7 +56,7 @@ class HeadlineControllerTest extends TestCase
         $response->assertJsonPath('headlines.1.forward_refs.0.id', $headline1->id);
     }
 
-    public function test_get_headlines_all_filtered_by_category(): void
+    public function test_get_headlines_all_filtered_by_one_category(): void
     {
         Headline::factory()->state([
             'title' => 'title-1',
@@ -69,21 +69,58 @@ class HeadlineControllerTest extends TestCase
             'description' => 'description-2',
         ])->create();
 
-        $response = $this->getJson('/api/headlines?category=sound-cd');
+        $response = $this->getJson('/api/headlines?categories=sound-cd');
 
         $response->assertStatus(200);
         $response->assertJsonPath('headlines.0.title', 'title-2');
         $response->assertJsonPath('headlines.0.category', 'sound-cd');
         $response->assertJsonPath('headlines.0.description', 'description-2');
-        $response->assertJsonMissingPath('headlines.1.title');
+        $response->assertJsonCount(1, 'headlines');
+    }
+
+    public function test_get_headlines_all_filtered_by_multiple_categories(): void
+    {
+        Headline::factory()->state([
+            'title' => 'title-1',
+            'category' => 'book-digital',
+            'description' => 'description-1',
+        ])->create();
+        Headline::factory()->state([
+            'title' => 'title-2',
+            'category' => 'sound-cd',
+            'description' => 'description-2',
+        ])->create();
+        Headline::factory()->state([
+            'title' => 'title-3',
+            'category' => 'sound-file',
+            'description' => 'description-3',
+        ])->create();
+
+        $response = $this->getJson('/api/headlines?categories=sound-cd,sound-file');
+
+        $response->assertStatus(200);
+        $response->assertJsonPath('headlines.0.title', 'title-2');
+        $response->assertJsonPath('headlines.0.category', 'sound-cd');
+        $response->assertJsonPath('headlines.0.description', 'description-2');
+        $response->assertJsonPath('headlines.1.title', 'title-3');
+        $response->assertJsonPath('headlines.1.category', 'sound-file');
+        $response->assertJsonPath('headlines.1.description', 'description-3');
+        $response->assertJsonCount(2, 'headlines');
     }
 
     public function test_get_headlines_all_by_invalid_category(): void
     {
-        $response = $this->getJson('/api/headlines?category=invalid-category');
+        Headline::factory()->state([
+            'title' => 'title-1',
+            'category' => 'book-digital',
+            'description' => 'description-1',
+        ])->create();
 
-        $response->assertStatus(422);
-        $response->assertJsonValidationErrors(['category' => ['The selected category is invalid.']]);
+        $response = $this->getJson('/api/headlines?categories=invalid-category');
+
+        $response->assertStatus(200);
+        // invalid categories are ignored.
+        $response->assertJsonCount(1, 'headlines');
     }
 
     public function test_get_headlines_one(): void

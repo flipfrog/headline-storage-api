@@ -3,7 +3,8 @@
 This repository is a backend server code for Media Headlines Storage System which is work in progress.
 The system is that I am personally developing.
 
-Frontend system of the system is also now developing, and is about to be revealed soon.
+This system is composed of Backend Server and [Frontend System](https://github.com/flipfrog/headline-storage-frontend).
+The Frontend System is also work in progress.
 
 ### What is Media Headlines Storage
 

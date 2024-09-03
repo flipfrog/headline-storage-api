@@ -28,13 +28,13 @@ choose a database system.
 
 then, make up docker containers.
 ```shell
-make up
+./vendor/bin/sail up -d
 ```
 waiting to start up docker containers.
 
 then, migrate database tables.
 ```shell
-make migrate
+./vendor/bin/sail artisan migrate
 ```
 
 ### Usage
@@ -42,5 +42,10 @@ make migrate
 If your operating system has make command, you can use a Makefile to control docker containers using make command.
 - To control containers, `make up`, `make down`.
 - To run migration, `make migrate`.
-- To run shell `make sh`.
-- To run test `make test`
+- To run shell, `make sh`.
+- To run test, `make test`
+
+### Blogs
+I wrote blog article related this repo.
+- https://unknownspace.hatenablog.com/entry/linked-models-by-laravel
+

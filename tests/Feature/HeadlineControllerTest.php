@@ -228,8 +228,8 @@ class HeadlineControllerTest extends TestCase
             'title' => 'title-1',
             'category' => 'book-digital',
             'description' => 'description-1',
-            'forwardRefs' => [$headlineForwardRef->id],
-            'backwardRefs' => [$headlineBackwardRef->id],
+            'forward_ref_ids' => [$headlineForwardRef->id],
+            'backward_ref_ids' => [$headlineBackwardRef->id],
         ]);
 
         $response->assertStatus(201);
@@ -362,8 +362,8 @@ class HeadlineControllerTest extends TestCase
             'title' => 'title-2',
             'category' => 'sound-cd',
             'description' => 'description-2',
-            'forwardRefs' => [$headlineForwardRef->id],
-            'backwardRefs' => [$headlineBackwardRef->id],
+            'forward_ref_ids' => [$headlineForwardRef->id],
+            'backward_ref_ids' => [$headlineBackwardRef->id],
         ]);
 
         $response->assertStatus(200);
@@ -483,11 +483,11 @@ class HeadlineControllerTest extends TestCase
             'title' => 'title-2',
             'category' => 'sound-cd',
             'description' => 'description-2',
-            'forwardRefs' => [$headlineForwardRef->id],
+            'forward_ref_ids' => [$headlineForwardRef->id],
         ]);
 
         $response->assertStatus(409);
-        $response->assertJson(['forwardRefs' => ['forwardRefs is duplicated.']]);
+        $response->assertJson(['forward_ref_ids' => ['forward_ref_ids is duplicated.']]);
         $this->assertDatabaseCount('headlines', 3);
         $this->assertDatabaseHas('headlines', [
             'id' => $headline->id,
@@ -531,11 +531,11 @@ class HeadlineControllerTest extends TestCase
             'title' => 'title-2',
             'category' => 'sound-cd',
             'description' => 'description-2',
-            'backwardRefs' => [$headlineBackwardRef->id],
+            'backward_ref_ids' => [$headlineBackwardRef->id],
         ]);
 
         $response->assertStatus(409);
-        $response->assertJson(['backwardRefs' => ['backwardRefs is duplicated.']]);
+        $response->assertJson(['backward_ref_ids' => ['backward_ref_ids is duplicated.']]);
         $this->assertDatabaseCount('headlines', 3);
         $this->assertDatabaseHas('headlines', [
             'id' => $headline->id,

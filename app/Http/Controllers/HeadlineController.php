@@ -49,8 +49,7 @@ class HeadlineController extends Controller
             'backward_ref_ids' => 'nullable|array',
         ]);
 
-        try {
-            DB::beginTransaction();
+        $headline = DB::transaction(function () use ($validated) {
             /** @var Headline $headline */
             $headline = Headline::create($validated)->load('forwardRefs', 'backwardRefs');
 
@@ -60,11 +59,8 @@ class HeadlineController extends Controller
             if (!empty($validated['backward_ref_ids'])) {
                 $headline->backwardRefs()->sync($validated['backward_ref_ids']);
             }
-            DB::commit();
-        } catch (\Throwable $th) {
-            DB::rollBack();
-            throw $th;
-        }
+            return $headline;
+        });
 
         if (!empty($validated['forward_ref_ids']) || !empty($validated['backward_ref_ids'])) {
             $headline->load('forwardRefs', 'backwardRefs');
@@ -100,7 +96,7 @@ class HeadlineController extends Controller
             return response()->json(['backward_ref_ids' => ['backward_ref_ids is duplicated.']], 409);
         }
 
-        try {
+        $headline = DB::transaction(function () use ($headline, $validated) {
             $headline->fill($validated)->save();
 
             if (isset($validated['forward_ref_ids'])) {
@@ -109,10 +105,8 @@ class HeadlineController extends Controller
             if (isset($validated['backward_ref_ids'])) {
                 $headline->backwardRefs()->sync($validated['backward_ref_ids']);
             }
-        } catch (\Throwable $th) {
-            DB::rollBack();
-            throw $th;
-        }
+            return $headline;
+        });
 
         if (isset($validated['forward_ref_ids']) || isset($validated['backward_ref_ids'])) {
             $headline->load('forwardRefs', 'backwardRefs');

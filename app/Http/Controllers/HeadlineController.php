@@ -52,13 +52,8 @@ class HeadlineController extends Controller
         $headline = DB::transaction(function () use ($validated) {
             /** @var Headline $headline */
             $headline = Headline::create($validated)->load('forwardRefs', 'backwardRefs');
+            $this->updateForwardRefs($headline, $validated['forward_ref_ids'] ?? []);
 
-            if (!empty($validated['forward_ref_ids'])) {
-                $headline->forwardRefs()->sync($validated['forward_ref_ids']);
-            }
-            if (!empty($validated['backward_ref_ids'])) {
-                $headline->backwardRefs()->sync($validated['backward_ref_ids']);
-            }
             return $headline;
         });
 
@@ -84,27 +79,12 @@ class HeadlineController extends Controller
             'title' => 'required|max:100',
             'description' => 'nullable',
             'forward_ref_ids' => 'nullable|array',
-            'backward_ref_ids' => 'nullable|array',
         ]);
-
-        // check duplication for refs.
-        $refIds = $headline->forwardRefs->merge($headline->backwardRefs)->pluck('id');
-        if ($refIds->intersect(collect($validated['forward_ref_ids'] ?? []))->isNotEmpty()) {
-            return response()->json(['forward_ref_ids' => ['forward_ref_ids is duplicated.']], 409);
-        }
-        if ($refIds->intersect(collect($validated['backward_ref_ids']?? []))->isNotEmpty()) {
-            return response()->json(['backward_ref_ids' => ['backward_ref_ids is duplicated.']], 409);
-        }
 
         $headline = DB::transaction(function () use ($headline, $validated) {
             $headline->fill($validated)->save();
+            $this->updateForwardRefs($headline, $validated['forward_ref_ids'] ?? []);
 
-            if (isset($validated['forward_ref_ids'])) {
-                $headline->forwardRefs()->sync($validated['forward_ref_ids']);
-            }
-            if (isset($validated['backward_ref_ids'])) {
-                $headline->backwardRefs()->sync($validated['backward_ref_ids']);
-            }
             return $headline;
         });
 
@@ -122,5 +102,16 @@ class HeadlineController extends Controller
         $headline->forwardRefs()->detach();
         $headline->backwardRefs()->detach();
         $headline->delete();
+    }
+
+    private function updateForwardRefs(Headline $headline, array $requestForwardRefIds): void
+    {
+        $backwardRefIds = $headline->backwardRefs()->pluck('id');
+        $newRefIds = collect($requestForwardRefIds)
+            ->mapWithKeys(fn ($refId) => [$refId => $refId])
+            ->except($backwardRefIds)
+            ->unique();
+
+        $headline->forwardRefs()->sync($newRefIds);
     }
 }

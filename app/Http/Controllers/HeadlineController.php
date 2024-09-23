@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Headline;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class HeadlineController extends Controller
 {
@@ -33,6 +34,11 @@ class HeadlineController extends Controller
         ]);
     }
 
+    /**
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     * @throws \Throwable
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -43,15 +49,23 @@ class HeadlineController extends Controller
             'backward_ref_ids' => 'nullable|array',
         ]);
 
-        /** @var Headline $headline */
-        $headline = Headline::create($validated)->load('forwardRefs', 'backwardRefs');
+        try {
+            DB::beginTransaction();
+            /** @var Headline $headline */
+            $headline = Headline::create($validated)->load('forwardRefs', 'backwardRefs');
 
-        if (!empty($validated['forward_ref_ids'])) {
-            $headline->forwardRefs()->sync($validated['forward_ref_ids']);
+            if (!empty($validated['forward_ref_ids'])) {
+                $headline->forwardRefs()->sync($validated['forward_ref_ids']);
+            }
+            if (!empty($validated['backward_ref_ids'])) {
+                $headline->backwardRefs()->sync($validated['backward_ref_ids']);
+            }
+            DB::commit();
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            throw $th;
         }
-        if (!empty($validated['backward_ref_ids'])) {
-            $headline->backwardRefs()->sync($validated['backward_ref_ids']);
-        }
+
         if (!empty($validated['forward_ref_ids']) || !empty($validated['backward_ref_ids'])) {
             $headline->load('forwardRefs', 'backwardRefs');
         }
@@ -61,6 +75,12 @@ class HeadlineController extends Controller
         ], 201);
     }
 
+    /**
+     * @param Request $request
+     * @param Headline $headline
+     * @return \Illuminate\Http\JsonResponse
+     * @throws \Throwable
+     */
     public function update(Request $request, Headline $headline)
     {
         $validated = $request->validate([
@@ -80,14 +100,20 @@ class HeadlineController extends Controller
             return response()->json(['backward_ref_ids' => ['backward_ref_ids is duplicated.']], 409);
         }
 
-        $headline->fill($validated)->save();
+        try {
+            $headline->fill($validated)->save();
 
-        if (isset($validated['forward_ref_ids'])) {
-            $headline->forwardRefs()->sync($validated['forward_ref_ids']);
+            if (isset($validated['forward_ref_ids'])) {
+                $headline->forwardRefs()->sync($validated['forward_ref_ids']);
+            }
+            if (isset($validated['backward_ref_ids'])) {
+                $headline->backwardRefs()->sync($validated['backward_ref_ids']);
+            }
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            throw $th;
         }
-        if (isset($validated['backward_ref_ids'])) {
-            $headline->backwardRefs()->sync($validated['backward_ref_ids']);
-        }
+
         if (isset($validated['forward_ref_ids']) || isset($validated['backward_ref_ids'])) {
             $headline->load('forwardRefs', 'backwardRefs');
         }

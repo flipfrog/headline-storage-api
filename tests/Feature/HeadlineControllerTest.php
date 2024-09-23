@@ -218,36 +218,56 @@ class HeadlineControllerTest extends TestCase
             'category' => 'sound-vinyl',
             'description' => 'description-forward-ref',
         ])->create();
-        $headlineBackwardRef = Headline::factory()->state([
-            'title' => 'title-backward-ref',
-            'category' => 'sound-file',
-            'description' => 'description-backward-ref',
-        ])->create();
 
         $response = $this->postJson('/api/headlines', [
             'title' => 'title-1',
             'category' => 'book-digital',
             'description' => 'description-1',
             'forward_ref_ids' => [$headlineForwardRef->id],
-            'backward_ref_ids' => [$headlineBackwardRef->id],
         ]);
 
         $response->assertStatus(201);
         $response->assertJsonPath('headline.title', 'title-1');
         $response->assertJsonPath('headline.forward_refs.0.title', 'title-forward-ref');
-        $response->assertJsonPath('headline.backward_refs.0.title', 'title-backward-ref');
         $this->assertDatabaseHas('headlines', [
             'title' => 'title-1',
             'category' => 'book-digital',
             'description' => 'description-1',
         ]);
+        $this->assertDatabaseCount('headline_headline', 1);
         $this->assertDatabaseHas('headline_headline', [
             'origin_id' => $response->json('headline.id'),
             'end_id' => $headlineForwardRef->id,
         ]);
+    }
+
+    public function test_store_headline_with_duplicated_refs(): void
+    {
+        $headlineForwardRef = Headline::factory()->state([
+            'title' => 'title-forward-ref',
+            'category' => 'sound-vinyl',
+            'description' => 'description-forward-ref',
+        ])->create();
+
+        $response = $this->postJson('/api/headlines', [
+            'title' => 'title-1',
+            'category' => 'book-digital',
+            'description' => 'description-1',
+            'forward_ref_ids' => [$headlineForwardRef->id, $headlineForwardRef->id],
+        ]);
+
+        $response->assertStatus(201);
+        $response->assertJsonPath('headline.title', 'title-1');
+        $response->assertJsonPath('headline.forward_refs.0.title', 'title-forward-ref');
+        $this->assertDatabaseHas('headlines', [
+            'title' => 'title-1',
+            'category' => 'book-digital',
+            'description' => 'description-1',
+        ]);
+        $this->assertDatabaseCount('headline_headline', 1);
         $this->assertDatabaseHas('headline_headline', [
-            'origin_id' => $headlineBackwardRef->id,
-            'end_id' => $response->json('headline.id'),
+            'origin_id' => $response->json('headline.id'),
+            'end_id' => $headlineForwardRef->id,
         ]);
     }
 
@@ -347,6 +367,58 @@ class HeadlineControllerTest extends TestCase
             'category' => 'sound-vinyl',
             'description' => 'description-forward-ref',
         ])->create();
+        $headline = Headline::factory()->state([
+            'title' => 'title-1',
+            'category' => 'sound-vinyl',
+            'description' => 'description-1',
+        ])->create();
+
+        $response = $this->putJson("/api/headlines/{$headline->id}", [
+            'title' => 'title-1',
+            'category' => 'sound-vinyl',
+            'description' => 'description-1',
+            'forward_ref_ids' => [$headlineForwardRef->id],
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJsonPath('headline.id', $headline->id);
+        $response->assertJsonCount(1, 'headline.forward_refs');
+        $response->assertJsonPath('headline.forward_refs.0.id', $headlineForwardRef->id);
+    }
+
+    public function test_update_headline_with_duplicated_forward_refs(): void
+    {
+        $headlineForwardRef = Headline::factory()->state([
+            'title' => 'title-forward-ref',
+            'category' => 'sound-vinyl',
+            'description' => 'description-forward-ref',
+        ])->create();
+        $headline = Headline::factory()->state([
+            'title' => 'title-1',
+            'category' => 'sound-vinyl',
+            'description' => 'description-1',
+        ])->create();
+
+        $response = $this->putJson("/api/headlines/{$headline->id}", [
+            'title' => 'title-1',
+            'category' => 'sound-vinyl',
+            'description' => 'description-1',
+            'forward_ref_ids' => [$headlineForwardRef->id, $headlineForwardRef->id],
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJsonPath('headline.id', $headline->id);
+        $response->assertJsonCount(1, 'headline.forward_refs');
+        $response->assertJsonPath('headline.forward_refs.0.id', $headlineForwardRef->id);
+    }
+
+    public function test_update_headline_with_duplicated_backward_refs(): void
+    {
+        $headlineForwardRef = Headline::factory()->state([
+            'title' => 'title-forward-ref',
+            'category' => 'sound-vinyl',
+            'description' => 'description-forward-ref',
+        ])->create();
         $headlineBackwardRef = Headline::factory()->state([
             'title' => 'title-backward-ref',
             'category' => 'sound-file',
@@ -356,34 +428,23 @@ class HeadlineControllerTest extends TestCase
             'title' => 'title-1',
             'category' => 'sound-vinyl',
             'description' => 'description-1',
-        ])->create();
+        ])
+            ->hasAttached([$headlineBackwardRef], [], 'backwardRefs')
+            ->create();
 
         $response = $this->putJson("/api/headlines/{$headline->id}", [
-            'title' => 'title-2',
-            'category' => 'sound-cd',
-            'description' => 'description-2',
-            'forward_ref_ids' => [$headlineForwardRef->id],
-            'backward_ref_ids' => [$headlineBackwardRef->id],
+            'title' => 'title-1',
+            'category' => 'sound-vinyl',
+            'description' => 'description-1',
+            'forward_ref_ids' => [$headlineForwardRef->id, $headlineBackwardRef->id],
         ]);
 
         $response->assertStatus(200);
         $response->assertJsonPath('headline.id', $headline->id);
-        $response->assertJsonPath('headline.title', 'title-2');
+        $response->assertJsonCount(1, 'headline.forward_refs');
         $response->assertJsonPath('headline.forward_refs.0.id', $headlineForwardRef->id);
+        $response->assertJsonCount(1, 'headline.backward_refs');
         $response->assertJsonPath('headline.backward_refs.0.id', $headlineBackwardRef->id);
-        $this->assertDatabaseHas('headlines', [
-            'title' => 'title-2',
-            'category' => 'sound-cd',
-            'description' => 'description-2',
-        ]);
-        $this->assertDatabaseHas('headline_headline', [
-            'origin_id' => $response->json('headline.id'),
-            'end_id' => $headlineForwardRef->id,
-        ]);
-        $this->assertDatabaseHas('headline_headline', [
-            'origin_id' => $headlineBackwardRef->id,
-            'end_id' => $response->json('headline.id'),
-        ]);
     }
 
     public function test_update_headline_with_null_title(): void
@@ -455,102 +516,6 @@ class HeadlineControllerTest extends TestCase
             'title' => 'title-1',
             'category' => 'sound-vinyl',
             'description' => 'description-1',
-        ]);
-    }
-
-    public function test_update_headline_with_duplicated_forward_refs(): void
-    {
-        $headlineForwardRef = Headline::factory()->state([
-            'title' => 'title-forward-ref',
-            'category' => 'sound-vinyl',
-            'description' => 'description-forward-ref',
-        ])->create();
-        $headlineBackwardRef = Headline::factory()->state([
-            'title' => 'title-backward-ref',
-            'category' => 'sound-file',
-            'description' => 'description-backward-ref',
-        ])->create();
-        $headline = Headline::factory()->state([
-            'title' => 'title-1',
-            'category' => 'sound-vinyl',
-            'description' => 'description-1',
-        ])
-            ->hasAttached([$headlineForwardRef], [], 'forwardRefs')
-            ->hasAttached([$headlineBackwardRef], [], 'backwardRefs')
-            ->create();
-
-        $response = $this->putJson("/api/headlines/{$headline->id}", [
-            'title' => 'title-2',
-            'category' => 'sound-cd',
-            'description' => 'description-2',
-            'forward_ref_ids' => [$headlineForwardRef->id],
-        ]);
-
-        $response->assertStatus(409);
-        $response->assertJson(['forward_ref_ids' => ['forward_ref_ids is duplicated.']]);
-        $this->assertDatabaseCount('headlines', 3);
-        $this->assertDatabaseHas('headlines', [
-            'id' => $headline->id,
-            'title' => 'title-1',
-            'category' => 'sound-vinyl',
-            'description' => 'description-1',
-        ]);
-        $this->assertDatabaseCount('headline_headline', 2);
-        $this->assertDatabaseHas('headline_headline', [
-            'origin_id' => $headline->id,
-            'end_id' => $headlineForwardRef->id,
-        ]);
-        $this->assertDatabaseHas('headline_headline', [
-            'origin_id' => $headlineBackwardRef->id,
-            'end_id' => $headline->id,
-        ]);
-    }
-
-    public function test_update_headline_with_duplicated_backward_refs(): void
-    {
-        $headlineForwardRef = Headline::factory()->state([
-            'title' => 'title-forward-ref',
-            'category' => 'sound-vinyl',
-            'description' => 'description-forward-ref',
-        ])->create();
-        $headlineBackwardRef = Headline::factory()->state([
-            'title' => 'title-backward-ref',
-            'category' => 'sound-file',
-            'description' => 'description-backward-ref',
-        ])->create();
-        $headline = Headline::factory()->state([
-            'title' => 'title-1',
-            'category' => 'sound-vinyl',
-            'description' => 'description-1',
-        ])
-            ->hasAttached([$headlineForwardRef], [], 'forwardRefs')
-            ->hasAttached([$headlineBackwardRef], [], 'backwardRefs')
-            ->create();
-
-        $response = $this->putJson("/api/headlines/{$headline->id}", [
-            'title' => 'title-2',
-            'category' => 'sound-cd',
-            'description' => 'description-2',
-            'backward_ref_ids' => [$headlineBackwardRef->id],
-        ]);
-
-        $response->assertStatus(409);
-        $response->assertJson(['backward_ref_ids' => ['backward_ref_ids is duplicated.']]);
-        $this->assertDatabaseCount('headlines', 3);
-        $this->assertDatabaseHas('headlines', [
-            'id' => $headline->id,
-            'title' => 'title-1',
-            'category' => 'sound-vinyl',
-            'description' => 'description-1',
-        ]);
-        $this->assertDatabaseCount('headline_headline', 2);
-        $this->assertDatabaseHas('headline_headline', [
-            'origin_id' => $headline->id,
-            'end_id' => $headlineForwardRef->id,
-        ]);
-        $this->assertDatabaseHas('headline_headline', [
-            'origin_id' => $headlineBackwardRef->id,
-            'end_id' => $headline->id,
         ]);
     }
 

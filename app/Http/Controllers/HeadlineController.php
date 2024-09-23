@@ -52,17 +52,15 @@ class HeadlineController extends Controller
         $headline = DB::transaction(function () use ($validated) {
             /** @var Headline $headline */
             $headline = Headline::create($validated)->load('forwardRefs', 'backwardRefs');
-            $this->updateForwardRefs($headline, $validated['forward_ref_ids'] ?? []);
+            if (isset($validated['forward_ref_ids'])) {
+                $this->updateForwardRefs($headline, $validated['forward_ref_ids']);
+            }
 
             return $headline;
         });
 
-        if (!empty($validated['forward_ref_ids']) || !empty($validated['backward_ref_ids'])) {
-            $headline->load('forwardRefs', 'backwardRefs');
-        }
-
         return response()->json([
-            'headline' => $headline
+            'headline' => $headline->load('forwardRefs', 'backwardRefs')
         ], 201);
     }
 
@@ -83,17 +81,15 @@ class HeadlineController extends Controller
 
         $headline = DB::transaction(function () use ($headline, $validated) {
             $headline->fill($validated)->save();
-            $this->updateForwardRefs($headline, $validated['forward_ref_ids'] ?? []);
+            if (isset($validated['forward_ref_ids'])) {
+                $this->updateForwardRefs($headline, $validated['forward_ref_ids']);
+            }
 
             return $headline;
         });
 
-        if (isset($validated['forward_ref_ids']) || isset($validated['backward_ref_ids'])) {
-            $headline->load('forwardRefs', 'backwardRefs');
-        }
-
         return response()->json([
-            'headline' => $headline
+            'headline' => $headline->load('forwardRefs', 'backwardRefs')
         ]);
     }
 

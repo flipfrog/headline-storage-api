@@ -185,6 +185,8 @@ class HeadlineControllerTest extends TestCase
         $response->assertJsonPath('headline.title', 'title-1');
         $response->assertJsonPath('headline.category', 'book-digital');
         $response->assertJsonPath('headline.description', 'description-1');
+        $response->assertJsonCount(0, 'headline.forward_refs');
+        $response->assertJsonCount(0, 'headline.backward_refs');
         $this->assertDatabaseHas('headlines', [
             'title' => 'title-1',
             'category' => 'book-digital',
@@ -445,6 +447,59 @@ class HeadlineControllerTest extends TestCase
         $response->assertJsonPath('headline.forward_refs.0.id', $headlineForwardRef->id);
         $response->assertJsonCount(1, 'headline.backward_refs');
         $response->assertJsonPath('headline.backward_refs.0.id', $headlineBackwardRef->id);
+    }
+
+    public function test_update_headline_to_remove_refs(): void
+    {
+        $headlineForwardRef = Headline::factory()->state([
+            'title' => 'title-backward-ref',
+            'category' => 'sound-file',
+            'description' => 'description-backward-ref',
+        ])->create();
+        $headline = Headline::factory()->state([
+            'title' => 'title-1',
+            'category' => 'sound-vinyl',
+            'description' => 'description-1',
+        ])
+            ->hasAttached([$headlineForwardRef], [], 'forwardRefs')
+            ->create();
+
+        $response = $this->putJson("/api/headlines/{$headline->id}", [
+            'title' => 'title-1',
+            'category' => 'sound-vinyl',
+            'description' => 'description-1',
+            'forward_ref_ids' => [],
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJsonPath('headline.id', $headline->id);
+        $response->assertJsonCount(0, 'headline.forward_refs');
+    }
+
+    public function test_update_headline_with_no_effect_for_refs(): void
+    {
+        $headlineForwardRef = Headline::factory()->state([
+            'title' => 'title-backward-ref',
+            'category' => 'sound-file',
+            'description' => 'description-backward-ref',
+        ])->create();
+        $headline = Headline::factory()->state([
+            'title' => 'title-1',
+            'category' => 'sound-vinyl',
+            'description' => 'description-1',
+        ])
+            ->hasAttached([$headlineForwardRef], [], 'forwardRefs')
+            ->create();
+
+        $response = $this->putJson("/api/headlines/{$headline->id}", [
+            'title' => 'title-1',
+            'category' => 'sound-vinyl',
+            'description' => 'description-1',
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJsonPath('headline.id', $headline->id);
+        $response->assertJsonCount(1, 'headline.forward_refs');
     }
 
     public function test_update_headline_with_null_title(): void

@@ -44,8 +44,3 @@ If your operating system has make command, you can use a Makefile to control doc
 - To run migration, `make migrate`.
 - To run shell, `make sh`.
 - To run test, `make test`
-
-### Blogs
-I wrote blog article related this repo.
-- https://unknownspace.hatenablog.com/entry/linked-models-by-laravel
-
